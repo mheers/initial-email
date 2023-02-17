@@ -1,21 +1,29 @@
-FROM golang:1.19-alpine as builder
+FROM --platform=$BUILDPLATFORM golang:1.20-alpine as builder
 
-# Create the working directory.
-RUN mkdir /app
-WORKDIR /app
+RUN apk add --no-cache bash git
 
-# Copy the source code and build the application.
-COPY . .
-RUN go build -o initial-email
+WORKDIR /workspace
 
-FROM alpine:3.17.1
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+# COPY go.sum go.sum
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
 
-# Create the working directory.
-RUN mkdir /app
-WORKDIR /app
+COPY / /workspace
 
-# Copy the compiled binary from the builder image.
-COPY --from=builder /app/initial-email .
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+
+RUN [ "$(uname)" = Darwin ] && system=darwin || system=linux; \
+    ./ci/go-build.sh --os ${system} --arch $(echo $TARGETPLATFORM  | cut -d/ -f2)
+
+FROM --platform=$TARGETPLATFORM alpine
+
+RUN apk add --no-cache docker-cli
+
+COPY --from=builder /workspace/goapp /usr/bin/initial-email
 
 # Run the application.
-CMD ["./initial-email"]
+CMD ["/usr/bin/initial-email"]
