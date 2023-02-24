@@ -31,7 +31,11 @@ func main() {
 	log.Println("SMTP_TEXT:", text)
 
 	// Build the email
-	auth := smtp.PlainAuth("", username, password, smtpHost)
+	var auth smtp.Auth
+	if username != "" && password != "" {
+		auth = smtp.PlainAuth("", username, password, smtpHost)
+	}
+
 	message := []byte("From: " + fromName + " <" + from + ">\n" +
 		"To: " + toName + " <" + to + ">\n" +
 		"Subject: " + subject + "\n\n" +
